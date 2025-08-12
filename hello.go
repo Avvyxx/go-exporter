@@ -30,19 +30,19 @@ func NewProcessCollector() *ProcessCollector {
     infoDesc: prometheus.NewDesc(
       "process_info",
       "Static info about running processes by user and host.",
-      []string{"user", "process", "host", "pid"},
+      []string{"uid", "process", "host", "pid"},
       nil,
     ),
     cpuDesc: prometheus.NewDesc(
       "process_cpu_seconds",
       "CPU usage of the process in seconds.",
-      []string{"user", "process", "host", "pid"},
+      []string{"uid", "process", "host", "pid"},
       nil,
     ),
     memoryDesc: prometheus.NewDesc(
       "process_memory_bytes",
       "Memory usage of the process in bytes.",
-      []string{"user", "process", "host", "pid"},
+      []string{"uid", "process", "host", "pid"},
       nil,
     ),
   }
