@@ -74,12 +74,6 @@ func (collector *ProcessCollector) Collect(ch chan<- prometheus.Metric) {
     }
 
     uid := status.UIDs[0]
-    user, err := user.LookupId(fmt.Sprint(uid))
-    if err != nil {
-      continue
-    }
-    username := user.Username
-
     pid := fmt.Sprint(p.PID)
 
     name, err := p.Comm()
@@ -97,7 +91,7 @@ func (collector *ProcessCollector) Collect(ch chan<- prometheus.Metric) {
       collector.infoDesc,
       prometheus.GaugeValue,
       1,
-      username,
+      uid,
       name,
       collector.hostnameLabel,
       pid,
@@ -106,7 +100,7 @@ func (collector *ProcessCollector) Collect(ch chan<- prometheus.Metric) {
       collector.cpuDesc,
       prometheus.CounterValue,
       cpu,
-      username,
+      uid,
       name,
       collector.hostnameLabel,
       pid,
@@ -115,7 +109,7 @@ func (collector *ProcessCollector) Collect(ch chan<- prometheus.Metric) {
       collector.memoryDesc,
       prometheus.GaugeValue,
       mem,
-      username,
+      uid,
       name,
       collector.hostnameLabel,
       pid,
