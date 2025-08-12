@@ -81,9 +81,9 @@ func (collector *ProcessCollector) Collect(ch chan<- prometheus.Metric) {
     }
     name = strings.TrimSpace(name)
 
-    cpu := stat.CPUTime()
+    uptime_seconds := stat.CPUTime()
 
-    mem := float64(stat.ResidentMemory())
+    mem_used_bytes := float64(stat.ResidentMemory())
 
     // Emit metrics
     ch <- prometheus.MustNewConstMetric(
@@ -98,7 +98,7 @@ func (collector *ProcessCollector) Collect(ch chan<- prometheus.Metric) {
     ch <- prometheus.MustNewConstMetric(
       collector.cpuDesc,
       prometheus.CounterValue,
-      cpu,
+      uptime_seconds,
       uid,
       name,
       collector.hostnameLabel,
@@ -107,7 +107,7 @@ func (collector *ProcessCollector) Collect(ch chan<- prometheus.Metric) {
     ch <- prometheus.MustNewConstMetric(
       collector.memoryDesc,
       prometheus.GaugeValue,
-      mem,
+      mem_used_bytes,
       uid,
       name,
       collector.hostnameLabel,
@@ -122,5 +122,5 @@ func main() {
 
   http.Handle("/metrics", promhttp.Handler())
 
-  log.Fatal(http.ListenAndServe(":9100", nil))
+  log.Fatal(http.ListenAndServe(":9102", nil))
 }
