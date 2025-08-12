@@ -5,7 +5,6 @@ import (
   "log"
   "net/http"
   "os"
-  "os/user"
   "strings"
 
   "github.com/prometheus/client_golang/prometheus"
