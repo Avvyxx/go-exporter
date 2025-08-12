@@ -57,7 +57,7 @@ func (collector *ProcessCollector) Describe(ch chan<- *prometheus.Desc) {
 func (collector *ProcessCollector) Collect(ch chan<- prometheus.Metric) {
   procs, err := procfs.AllProcs()
   if err != nil {
-    log.Println("Error fetching processes:", err)
+    log.Println("Error fetching processes: ", err)
     return
   }
 
