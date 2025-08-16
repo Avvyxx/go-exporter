@@ -72,17 +72,15 @@ func (collector *ProcessCollector) Collect(ch chan<- prometheus.Metric) {
       continue
     }
 
-    uid := fmt.Sprint(status.UIDs[0])
-    pid := fmt.Sprint(p.PID)
-
     name, err := p.Comm()
     if err != nil {
       continue
     }
-    name = strings.TrimSpace(name)
 
+    uid := fmt.Sprint(status.UIDs[0])
+    pid := fmt.Sprint(p.PID)
+    proc_name := strings.TrimSpace(name)
     uptime_seconds := stat.CPUTime()
-
     mem_used_bytes := float64(stat.ResidentMemory())
 
     // Emit metrics
@@ -91,7 +89,7 @@ func (collector *ProcessCollector) Collect(ch chan<- prometheus.Metric) {
       prometheus.GaugeValue,
       1,
       uid,
-      name,
+      proc_name,
       collector.hostnameLabel,
       pid,
     )
@@ -100,7 +98,7 @@ func (collector *ProcessCollector) Collect(ch chan<- prometheus.Metric) {
       prometheus.CounterValue,
       uptime_seconds,
       uid,
-      name,
+      proc_name,
       collector.hostnameLabel,
       pid,
     )
@@ -109,7 +107,7 @@ func (collector *ProcessCollector) Collect(ch chan<- prometheus.Metric) {
       prometheus.GaugeValue,
       mem_used_bytes,
       uid,
-      name,
+      proc_name,
       collector.hostnameLabel,
       pid,
     )
