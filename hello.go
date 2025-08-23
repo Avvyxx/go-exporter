@@ -13,9 +13,10 @@ import (
 )
 
 type ProcessCollector struct {
-  infoDesc      *prometheus.Desc
   cpuDesc       *prometheus.Desc
   memoryDesc    *prometheus.Desc
+  systemTime    *prometheus.Desc
+  userTime      *prometheus.Desc
   hostnameLabel string
 }
 
@@ -27,14 +28,8 @@ func NewProcessCollector() *ProcessCollector {
 
   return &ProcessCollector{
     hostnameLabel: hostname,
-    infoDesc: prometheus.NewDesc(
-      "process_info",
-      "Static info about running processes by user and host.",
-      []string{"uid", "process", "host", "pid"},
-      nil,
-    ),
     cpuDesc: prometheus.NewDesc(
-      "process_cpu_seconds",
+      "process_cpu_seconds_total",
       "CPU usage of the process in seconds.",
       []string{"uid", "process", "host", "pid"},
       nil,
@@ -45,21 +40,49 @@ func NewProcessCollector() *ProcessCollector {
       []string{"uid", "process", "host", "pid"},
       nil,
     ),
+    systemTime: prometheus.NewDesc(
+      "process_system_seconds_total",
+      "Amount of time spent in system mode.",
+      []string{"uid", "process", "host", "pid"},
+      nil,
+    ),
+    userTime: prometheus.NewDesc(
+     "process_user_seconds_total",
+     "Amount of time spent in user mode.",
+     []string{"uid", "process", "host", "pid"},
+     nil,
+    ),
   }
 }
 
 func (collector *ProcessCollector) Describe(ch chan<- *prometheus.Desc) {
-  ch <- collector.infoDesc
   ch <- collector.cpuDesc
   ch <- collector.memoryDesc
+  ch <- collector.systemTime
+  ch <- collector.userTime
 }
 
 func (collector *ProcessCollector) Collect(ch chan<- prometheus.Metric) {
-  procs, err := procfs.AllProcs()
+  fs, err    := procfs.NewFS("/proc")
+
+  if err != nil {
+    log.Println("Error creating FS: ", err)
+    return
+  }
+
+  procs, err := fs.AllProcs()
+
   if err != nil {
     log.Println("Error fetching processes: ", err)
     return
   }
+
+  // cpuinfo, err := fs.CPUInfo()
+
+  // if err != nil {
+  //  log.Println("Error fetching CPU info: ", err)
+  //  return
+  // }
 
   for _, p := range procs {
     stat, err := p.Stat()
@@ -77,22 +100,18 @@ func (collector *ProcessCollector) Collect(ch chan<- prometheus.Metric) {
       continue
     }
 
+    clk_tck   := 100
+
+    user_secs := float64(stat.UTime) / float64(clk_tck)
+    sys_secs  := float64(stat.STime) / float64(clk_tck)
+    uptime_seconds := user_secs + sys_secs
+
     uid := fmt.Sprint(status.UIDs[0])
     pid := fmt.Sprint(p.PID)
     proc_name := strings.TrimSpace(name)
-    uptime_seconds := stat.CPUTime()
     mem_used_bytes := float64(stat.ResidentMemory())
 
     // Emit metrics
-    ch <- prometheus.MustNewConstMetric(
-      collector.infoDesc,
-      prometheus.GaugeValue,
-      1,
-      uid,
-      proc_name,
-      collector.hostnameLabel,
-      pid,
-    )
     ch <- prometheus.MustNewConstMetric(
       collector.cpuDesc,
       prometheus.CounterValue,
@@ -106,6 +125,24 @@ func (collector *ProcessCollector) Collect(ch chan<- prometheus.Metric) {
       collector.memoryDesc,
       prometheus.GaugeValue,
       mem_used_bytes,
+      uid,
+      proc_name,
+      collector.hostnameLabel,
+      pid,
+    )
+    ch <- prometheus.MustNewConstMetric(
+      collector.systemTime,
+      prometheus.CounterValue,
+      sys_secs,
+      uid,
+      proc_name,
+      collector.hostnameLabel,
+      pid,
+    )
+    ch <- prometheus.MustNewConstMetric(
+      collector.userTime,
+      prometheus.CounterValue,
+      user_secs,
       uid,
       proc_name,
       collector.hostnameLabel,
