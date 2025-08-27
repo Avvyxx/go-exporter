@@ -6,6 +6,7 @@ import (
   "net/http"
   "os"
   "strings"
+  "flag"
 
   "github.com/prometheus/client_golang/prometheus"
   "github.com/prometheus/client_golang/prometheus/promhttp"
@@ -19,12 +20,7 @@ type ProcessCollector struct {
   hostnameLabel string
 }
 
-func NewProcessCollector() *ProcessCollector {
-  hostname, err := os.Hostname()
-  if err != nil {
-    hostname = "unknown"
-  }
-
+func NewProcessCollector(hostname string) *ProcessCollector {
   return &ProcessCollector{
     hostnameLabel: hostname,
     memoryDesc: prometheus.NewDesc(
@@ -127,15 +123,28 @@ func (collector *ProcessCollector) Collect(ch chan<- prometheus.Metric) {
 }
 
 func main() {
+  name, err := os.Hostname()
+  if err != nil {
+    panic(err)
+  }
+
+  hostname := flag.String("hostname", name, "hostname to pass to exported metrics")
+  port := flag.String("port", "9100", "port to bind program")
+
+  flag.Parse()
+
   // create custom registry to only export what we want to export
   registry := prometheus.NewRegistry()
 
   // register our custom exports
-  collector := NewProcessCollector()
+  collector := NewProcessCollector(*hostname)
   registry.MustRegister(collector)
 
   handler := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
   http.Handle("/metrics", handler)
 
-  log.Fatal(http.ListenAndServe(":9100", nil))
+  fmt.Println("Exporting on port", *port)
+  fmt.Println("Metrics will have", "\"" + *hostname + "\"", "set as the hostname")
+
+  log.Fatal(http.ListenAndServe(":" + *port, nil))
 }
