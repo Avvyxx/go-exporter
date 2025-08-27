@@ -13,7 +13,6 @@ import (
 )
 
 type ProcessCollector struct {
-  cpuDesc       *prometheus.Desc
   memoryDesc    *prometheus.Desc
   systemTime    *prometheus.Desc
   userTime      *prometheus.Desc
@@ -28,14 +27,8 @@ func NewProcessCollector() *ProcessCollector {
 
   return &ProcessCollector{
     hostnameLabel: hostname,
-    cpuDesc: prometheus.NewDesc(
-      "process_cpu_seconds_total",
-      "CPU usage of the process in seconds.",
-      []string{"uid", "process", "host", "pid"},
-      nil,
-    ),
     memoryDesc: prometheus.NewDesc(
-      "process_memory_bytes",
+      "process_resident_memory_bytes",
       "Memory usage of the process in bytes.",
       []string{"uid", "process", "host", "pid"},
       nil,
@@ -56,7 +49,6 @@ func NewProcessCollector() *ProcessCollector {
 }
 
 func (collector *ProcessCollector) Describe(ch chan<- *prometheus.Desc) {
-  ch <- collector.cpuDesc
   ch <- collector.memoryDesc
   ch <- collector.systemTime
   ch <- collector.userTime
@@ -76,13 +68,6 @@ func (collector *ProcessCollector) Collect(ch chan<- prometheus.Metric) {
     log.Println("Error fetching processes: ", err)
     return
   }
-
-  // cpuinfo, err := fs.CPUInfo()
-
-  // if err != nil {
-  //  log.Println("Error fetching CPU info: ", err)
-  //  return
-  // }
 
   for _, p := range procs {
     stat, err := p.Stat()
@@ -104,7 +89,6 @@ func (collector *ProcessCollector) Collect(ch chan<- prometheus.Metric) {
 
     user_secs := float64(stat.UTime) / float64(clk_tck)
     sys_secs  := float64(stat.STime) / float64(clk_tck)
-    uptime_seconds := user_secs + sys_secs
 
     uid := fmt.Sprint(status.UIDs[0])
     pid := fmt.Sprint(p.PID)
@@ -112,15 +96,6 @@ func (collector *ProcessCollector) Collect(ch chan<- prometheus.Metric) {
     mem_used_bytes := float64(stat.ResidentMemory())
 
     // Emit metrics
-    ch <- prometheus.MustNewConstMetric(
-      collector.cpuDesc,
-      prometheus.CounterValue,
-      uptime_seconds,
-      uid,
-      proc_name,
-      collector.hostnameLabel,
-      pid,
-    )
     ch <- prometheus.MustNewConstMetric(
       collector.memoryDesc,
       prometheus.GaugeValue,
@@ -152,10 +127,15 @@ func (collector *ProcessCollector) Collect(ch chan<- prometheus.Metric) {
 }
 
 func main() {
-  collector := NewProcessCollector()
-  prometheus.MustRegister(collector)
+  // create custom registry to only export what we want to export
+  registry := prometheus.NewRegistry()
 
-  http.Handle("/metrics", promhttp.Handler())
+  // register our custom exports
+  collector := NewProcessCollector()
+  registry.MustRegister(collector)
+
+  handler := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
+  http.Handle("/metrics", handler)
 
   log.Fatal(http.ListenAndServe(":9100", nil))
 }
